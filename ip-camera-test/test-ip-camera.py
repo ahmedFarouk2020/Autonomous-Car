@@ -2,7 +2,7 @@ import cv2
 import math
 
 
-cap = cv2.VideoCapture('http://192.168.1.7:8080/videofeed')
+cap = cv2.VideoCapture('http://192.168.1.8:8080/videostream')
 
 framerate = cap.get(5)
 print("frame rate",framerate)
