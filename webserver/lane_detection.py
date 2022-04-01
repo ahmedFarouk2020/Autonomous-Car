@@ -1,8 +1,18 @@
 import cv2
 import numpy as np
 import math
+import time
 
+# Global variables
+direction_glob = "L"
+
+"""
+    Detect edges using canny and return edge image
+"""
 def detect_edges(frame):
+    cv2.imshow("frame before cropping", frame)
+    frame = frame[int(frame.shape[0]/5):int(-frame.shape[0]/5),int(frame.shape[1]/5):int(-frame.shape[1]/5)]
+    cv2.imshow("frame after cropping", frame)
     hsv_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV )
     lower_blue = np.array([60, 20, 20])
     upper_blue = np.array([150, 255, 255])
@@ -10,13 +20,34 @@ def detect_edges(frame):
     edges = cv2.Canny(blue_frame, 200, 400)
     return edges
 
+img = cv2.imread('lane4.jpg')
+canny = detect_edges(img)
+cv2.imshow("canny", canny)
+cv2.waitKey(0)
+
+
 def interest_regoin(frame):
     height, width = frame.shape
     mask = np.zeros_like(frame)
     half_height = int(1/2 * height)
-    mask[half_height: height] = np.ones(width)
+    half_width = int(1/2 * width)
+
+    if direction_glob == "R": 
+        mask[half_height: height, half_width:width] = 1
+    elif direction_glob == "L":
+        mask[half_height: height, 0:half_width] = 1
+    else:
+        pass
+
     roi = np.multiply(frame,mask)
     return roi
+
+
+roi = interest_regoin(canny)
+cv2.imshow("roi", roi)
+cv2.waitKey(0)
+
+
 
 def line_segment(frame):
     rho = 1  # distance precision in pixel, i.e. 1 pixel
@@ -25,6 +56,11 @@ def line_segment(frame):
     line_segments = cv2.HoughLinesP(frame, rho, angle, min_threshold, 
                                 np.array([]), minLineLength=8, maxLineGap=4)
     return line_segments
+
+
+
+
+
 
 def make_points(frame, line):
     height, width, _ = frame.shape
@@ -75,6 +111,7 @@ def detect_lanes(frame):
     edges = detect_edges(frame)
     roi = interest_regoin(edges)
     lines_segments = line_segment(roi)
+    
     lanes = average_slope_intercept(frame, lines_segments)
     return lanes
     
@@ -87,7 +124,6 @@ def display_lines(frame, lines, line_color=(0, 255, 0), line_width=5):
     return line_image
 
 def steering_angle(frame, lines):
-
     height, width, _ = frame.shape
     if len(lines) == 2:
         mid = int(width / 2)
@@ -118,16 +154,28 @@ def display_heading_line(frame, steering_angle, line_color=(0, 0, 255), line_wid
 
 def compute_angle(frame):
     lanes = detect_lanes(frame)
-    angle = steering_angle(frame, lanes)
+    try:
+        angle = steering_angle(frame, lanes)
+    except:
+        angle = 360
+        print("No lines detected")
+    print(angle)
     return angle
 
+
+# if the car heading left  -> ROI is the left down part of frame
+# if the car heading right -> ROI is the right down part of frame
 def deter_direction(frame):
+    global direction_glob
     angle = compute_angle(frame)
     direction = "F"
-    if angle < 90:
+    if angle < 85:
         direction = "L"
-    elif angle > 90:
+        direction_glob = direction
+    elif angle > 95:
         direction = "R"
+        direction_glob = direction
+
     return direction
 
 
@@ -138,5 +186,17 @@ def show_img(title,img):
     cv2.destroyAllWindows()
 
 
-img = cv2.imread('lane3.jpg')
-print(deter_direction(img))
+
+lines = detect_lanes(img)
+lineimage = display_lines(img, lines)
+
+
+cv2.imshow("line image", lineimage)
+cv2.waitKey(0)
+
+angle = compute_angle(img)
+
+try:
+    show_img("display_heading_line",display_heading_line(img, angle))
+except:
+    print("Forward")
